@@ -1,0 +1,17 @@
+SELECT
+		 b.[Loan Number] AS Loan_Number,
+		 CAST(t.[Cibil at] AS date) AS Cibil_Date,
+		 CAST(b.[Loan_Date] AS date) AS Loan_Date,
+		 ABS(DATEDIFF(day, CAST(b.[Loan_Date] AS date), CAST(t.[Cibil at] AS date))) AS "Disbursed (in Days)",
+		 
+			CASE
+				 WHEN ABS(DATEDIFF(day, CAST(b.[Loan_Date] AS date), CAST(t.[Cibil at] AS date)))  = 0 THEN 'Within 24 hrs'
+				 WHEN ABS(DATEDIFF(day, CAST(b.[Loan_Date] AS date), CAST(t.[Cibil at] AS date)))  = 1 THEN 'Within 48 hrs'
+				 WHEN ABS(DATEDIFF(day, CAST(b.[Loan_Date] AS date), CAST(t.[Cibil at] AS date)))  >= 2 THEN 'Beyond 48 hrs'
+				 ELSE 'Unknown'
+			 END AS Time_Bucket
+FROM  TAT_LTD_Final t
+JOIN Business_Done_Report_AllCloud b ON t.[Agreement No]  = b.[Loan Number]  
+WHERE	 t.[Cibil at]  IS NOT NULL
+ AND	b.[Loan_Date]  IS NOT NULL
+ AND	t.[Fast Track Status]  = 1

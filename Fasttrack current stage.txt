@@ -1,0 +1,89 @@
+SELECT
+		 t."Lead id" AS Lead_ID,
+		 t."Customer Name" AS Customer_Name,
+		 t."Mobile" AS Mobile,
+		 t."Sales Person" AS Sales_Person,
+		 t."City_Name" AS City,
+		 t."Agreement No" AS Agreement_No,
+		 /* <--- ADDED*/ t."Regional Head" AS Regional_Head,
+		 t."Regional Zone" AS Regional_Zone,
+		 t."Cluster Manager" AS Cluster_Manager,
+		 t."RSM" AS RSM,
+		 t."Lead Created at" AS Lead_Created_At,
+		 t."Cibil at" AS CIBIL_Completed_At,
+		 t."Sales Scorecard Completed at" AS Scorecard_Completed_At,
+		 t."FI Start at" AS FI_Started_At,
+		 t."FI End at" AS FI_Completed_At,
+		 t."Sales Rejected at" AS Sales_Rejected_At,
+		 t."Login at" AS Login_Completed_At,
+		 t."Documents Needed at" AS Documents_Requested_At,
+		 t."Credit Rejected at" AS Credit_Rejected_At,
+		 t."CAM at" AS CAM_Completed_At,
+		 t."CAM Rejected at" AS CAM_Rejected_At,
+		 t."SL Sent to Approval at" AS SL_Sent_For_Approval_At,
+		 t."SL Approved at" AS SL_Approved_At,
+		 t."SL Mail Sent at" AS SL_Mail_Sent_At,
+		 t."Sanction Rejected at" AS Sanction_Rejected_At,
+		 t."DO Approved at" AS DO_Approved_At,
+		 t."DO Mail Send at" AS DO_Mail_Sent_At,
+		 t."Fast Track Status" AS FastTrack_Status,
+		 t."Fasttrack Estimate" AS FastTrack_Deadline,
+		 t."Now" AS Current_Timestamp,
+		 
+			/* ✅ Current Stage Logic */
+			CASE
+				 WHEN t."Sales Rejected at"  IS NOT NULL THEN 'Sales Rejected'
+				 WHEN t."Credit Rejected at"  IS NOT NULL THEN 'Credit Rejected'
+				 WHEN t."CAM Rejected at"  IS NOT NULL THEN 'CAM Rejected'
+				 WHEN t."Sanction Rejected at"  IS NOT NULL
+				 AND	t."Sanction Rejected at"  > COALESCE(t."SL Mail Sent at", t."SL Approved at", t."SL Sent to Approval at") THEN 'Sanction Rejected'
+				 WHEN t."DO Mail Send at"  IS NOT NULL THEN 'DO Mail Sent'
+				 WHEN t."DO Approved at"  IS NOT NULL THEN 'DO Approved'
+				 WHEN t."SL Mail Sent at"  IS NOT NULL THEN 'SL Mail Sent'
+				 WHEN t."SL Approved at"  IS NOT NULL THEN 'SL Approved'
+				 WHEN t."SL Sent to Approval at"  IS NOT NULL THEN 'SL Sent to Approval'
+				 WHEN t."CAM at"  IS NOT NULL THEN 'CAM Completed'
+				 WHEN t."Documents Needed at"  IS NOT NULL
+				 AND	t."Login at"  IS NOT NULL
+				 AND	t."Login at"  < t."Documents Needed at" THEN 'Documents Reviewed'
+				 WHEN t."Login at"  IS NOT NULL THEN 'Login Completed'
+				 WHEN t."FI End at"  IS NOT NULL THEN 'FI Completed'
+				 WHEN t."FI Start at"  IS NOT NULL THEN 'FI Started'
+				 WHEN t."Sales Scorecard Completed at"  IS NOT NULL THEN 'Scorecard Completed'
+				 WHEN t."Cibil at"  IS NOT NULL THEN 'CIBIL Completed'
+				 WHEN t."Lead Created at"  IS NOT NULL THEN 'Lead Created'
+				 ELSE 'Not Started'
+			 END AS Current_Stage,
+		 
+			/* ✅ Pending Stage Logic */
+			CASE
+				 WHEN t."Sales Rejected at"  IS NOT NULL THEN 'Sales Rejected'
+				 WHEN t."Credit Rejected at"  IS NOT NULL THEN 'Credit Rejected'
+				 WHEN t."CAM Rejected at"  IS NOT NULL THEN 'CAM Rejected'
+				 WHEN t."Sanction Rejected at"  IS NOT NULL THEN 'Sanction Rejected'
+				 WHEN t."DO Mail Send at"  IS NOT NULL THEN 'Completed'
+				 WHEN t."SL Mail Sent at"  IS NOT NULL THEN 'DO Approval Pending'
+				 WHEN t."SL Approved at"  IS NOT NULL THEN 'SL Mail Pending'
+				 WHEN t."SL Sent to Approval at"  IS NOT NULL THEN 'SL Approval Pending'
+				 WHEN t."CAM at"  IS NOT NULL THEN 'SL Approval Pending'
+				 WHEN t."Documents Needed at"  IS NOT NULL THEN 'CAM Pending'
+				 WHEN t."Login at"  IS NOT NULL THEN 'CAM Pending'
+				 WHEN t."FI End at"  IS NOT NULL THEN 'Login Pending'
+				 WHEN t."FI Start at"  IS NOT NULL THEN 'FI Completion Pending'
+				 WHEN t."Cibil at"  IS NOT NULL THEN 'FI Pending'
+				 WHEN t."Lead Created at"  IS NOT NULL THEN 'CIBIL Pending'
+				 ELSE 'Pending'
+			 END AS Pending_Stage,
+		 
+			/* ✅ Aging Hours */
+			CASE
+				 /* ✅ Breached Logic*/ WHEN ROUND((t."Fasttrack Estimate" -t."Now") / 3600)  < 0 THEN 
+					CASE
+						 WHEN ABS(ROUND((t."Fasttrack Estimate" -t."Now") / 3600))  < 24 THEN CONCAT('TAT breached by ', ABS(ROUND((t."Fasttrack Estimate" -t."Now") / 3600)), ' hrs')
+						 ELSE CONCAT('TAT breached by ', FLOOR(ABS(ROUND((t."Fasttrack Estimate" -t."Now") / 3600)) / 24), ' day ', MOD(ABS(ROUND((t."Fasttrack Estimate" -t."Now") / 3600)), 24), ' hrs')
+					 END/* ✅ Remaining Time Logic*/
+				 WHEN ROUND((t."Fasttrack Estimate" -t."Now") / 3600)  > 0 THEN CONCAT(ROUND((t."Fasttrack Estimate" -t."Now") / 3600), ' hrs left')
+				 ELSE 'Due now'
+			 END AS Aging_Status
+FROM  TAT_LTD_Final t 
+WHERE	 t."Fast Track Status"  = 1
